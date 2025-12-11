@@ -4,7 +4,15 @@
 \alias{parse_file}
 \title{Parsing Logfile}
 \usage{
-parse_file(file, con = NULL, n = 10L, type = NULL, ...)
+parse_file(
+  file,
+  con = NULL,
+  n = 10L,
+  type = NULL,
+  verbose = FALSE,
+  maxbatches = Inf,
+  ...
+)
 }
 \arguments{
 \item{file}{character, path to the logfile to be parsed.}
@@ -19,6 +27,10 @@ the data are not returned but stored in the SQLite database.}
 error logfiles) or \code{"access"} (if parsing access logs). If set
 \code{NULL} it will be derived from the file name (if the file name
 contains \code{"error"} or \code{"access"}) or stops.}
+
+\item{verbose}{If set \code{TRUE}, some output will be printed.}
+
+\item{maxbatches}{Maximum number of batches of \code{n} rows to be read.}
 }
 \description{
 Parsing Logfile

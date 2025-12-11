@@ -6,14 +6,22 @@
 #' @param con either `NULL` (just returns a data.frame) or
 #'        an object of class `SQLiteConnection`. In this case
 #'        the data are not returned but stored in the SQLite database.
-#' @param n positive numeric, number of lines to parse in one batch.
+#' @param n positive numeric, number of lines to parse in one batch
+#'        from the logfile and written to the database.
+#' @param maxbatches Maximum number of batches of `n` rows to be read.
 #' @param type either `NULL` (auto-detect) or one of `"error"` (when parsing
 #'        error logfiles) or `"access"` (if parsing access logs). If set
 #'        `NULL` it will be derived from the file name (if the file name
 #'        contains `"error"` or `"access"`) or stops.
+#' @param verbose If set `TRUE`, some output will be printed.
 #'
 #' @importFrom RSQLite dbWriteTable
-parse_file <- function(file, con = NULL, n = 10L, type = NULL, ...) {
+parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, maxbatches = Inf, ...) {
+
+    verbose <- as.logical(verbose)[1L]
+    if (length(maxbatches) > 1)
+        warning("argument 'maxbatches' is of length > 1, only the first element will be used")
+    maxbatches <- as.integer(maxbatches)[1L]
 
     stopifnot(
         "Can't find file" = isTRUE(file.exists(file)),
@@ -21,7 +29,10 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, ...) {
             is.null(con) || inherits(con, "SQLiteConnection"),
         "type must be NULL or one of 'error'/'access'" = 
             is.null(type) || type %in% c("error", "access"),
-        "argument 'n' must numeric" = is.numeric(n) && length(n) >= 1L
+        "argument 'n' must numeric" = is.numeric(n) && length(n) >= 1L,
+        "argument 'verbose' must evaluate to TRUE or FALSE" = isTRUE(verbose) || isFALSE(verbose),
+        "argument 'maxbatches' must evaluate to integer" = is.integer(maxbatches) && length(maxbatches) == 1L,
+        "argument 'maxbatches' must be positive" = maxbatches > 0L
     )
     # Evaluating 'n'
     if (length(n) > 1L) warning("Only first element of 'n' is used.")
@@ -37,10 +48,6 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, ...) {
         type <- check
     }
 
-    # Maxbatch
-    args <- list(...)
-    maxbatches <- if (!is.null(args[["maxbatches"]])) as.integer(args[["maxbatches"]]) else Inf
-
     # Parsing the file
     fid     <- file(FILE, "r") # open file connection
     counter <- 0
@@ -50,7 +57,7 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, ...) {
         raw     <- readLines(fid, n = n)
         nlines  <- nlines + length(raw)
         if (length(raw) == 0L) break
-        cat("Read n =", length(raw), "lines from file\n")
+        if (verbose) cat("Read n =", length(raw), "lines from file\n")
 
         # Parsing the data
         tmp <- parse_logs(raw)
@@ -88,7 +95,7 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, ...) {
         }
 
         if (counter >= maxbatches) {
-            cat("Reached maximum number of batches to be read, exiting\n")
+            warning("Reached maximum number of lines to read before parsing the entire file! Consider increasing `n` and/or `maxbatches`.\n")
             break
         }
     }
