@@ -4,10 +4,14 @@
 \alias{parse_file}
 \title{Parsing Logfile}
 \usage{
-parse_file(file, n = 10L, type = NULL, ...)
+parse_file(file, con = NULL, n = 10L, type = NULL, ...)
 }
 \arguments{
 \item{file}{character, path to the logfile to be parsed.}
+
+\item{con}{either \code{NULL} (just returns a data.frame) or
+an object of class \code{SQLiteConnection}. In this case
+the data are not returned but stored in the SQLite database.}
 
 \item{n}{positive numeric, number of lines to parse in one batch.}
 
