@@ -2,6 +2,8 @@
 
 export(open_database)
 importFrom(RSQLite,SQLite)
+importFrom(RSQLite,dbBind)
+importFrom(RSQLite,dbClearResult)
 importFrom(RSQLite,dbCommit)
 importFrom(RSQLite,dbConnect)
 importFrom(RSQLite,dbExecute)

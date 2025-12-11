@@ -1,2 +1,4 @@
 
-test*
+/test*
+/Makefile
+/*.sqlite3

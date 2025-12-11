@@ -10,8 +10,8 @@ parse_file(
   n = 10L,
   type = NULL,
   verbose = FALSE,
-  maxbatches = Inf,
-  ...
+  maxbatches = .Machine$integer.max,
+  warn = TRUE
 )
 }
 \arguments{
@@ -21,7 +21,8 @@ parse_file(
 an object of class \code{SQLiteConnection}. In this case
 the data are not returned but stored in the SQLite database.}
 
-\item{n}{positive numeric, number of lines to parse in one batch.}
+\item{n}{positive numeric, number of lines to parse in one batch
+from the logfile and written to the database.}
 
 \item{type}{either \code{NULL} (auto-detect) or one of \code{"error"} (when parsing
 error logfiles) or \code{"access"} (if parsing access logs). If set
@@ -31,7 +32,24 @@ contains \code{"error"} or \code{"access"}) or stops.}
 \item{verbose}{If set \code{TRUE}, some output will be printed.}
 
 \item{maxbatches}{Maximum number of batches of \code{n} rows to be read.}
+
+\item{warn}{Logical, defaults to \code{TRUE}. Can be suppressed by setting
+it \code{FALSE}.}
+}
+\value{
+Invisibly returns the number of parsed lines.
 }
 \description{
 Parsing Logfile
+}
+\examples{
+\dontrun{
+  FILE   <- "my_access_log"
+  con    <- open_database("foo.sqlite3")
+  nlines <- parse_file(FILE, con = con, n = 1e5, verbose = TRUE)
+  msg    <- dbGetQuery(con, "SELECT * FROM messages")
+  log    <- dbGetQuery(con, "SELECT * FROM logs")
+  dbDisconnect(con)
+}
+
 }
