@@ -1,4 +1,4 @@
 
-/test*
-/Makefile
-/*.sqlite3
+^test*
+^Makefile
+^test.sqlite3

@@ -29,7 +29,7 @@
 #'   dbDisconnect(con)
 #' }
 #'
-#' @importFrom RSQLite dbWriteTable dbBind dbClearResult
+#' @importFrom RSQLite dbWriteTable dbBind dbSendStatement dbClearResult dbGetQuery
 parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, maxbatches = .Machine$integer.max, warn = TRUE) { 
 
     verbose <- as.logical(verbose)[1L]
@@ -65,7 +65,7 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
     }
 
     # Parsing the file
-    fid     <- file(FILE, "r") # open file connection
+    fid     <- file(file, "r") # open file connection
     counter <- 0
     nlines  <- 0
     repeat {
@@ -126,6 +126,7 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
 }
 
 #' @importFrom stringr str_match
+#' @importFrom stats line na.omit
 parse_logs <- function(x, warn = TRUE) {
     stopifnot(is.character(x) || length(x) > 0)
 

@@ -7,7 +7,7 @@
 open_database(dbfile)
 }
 \arguments{
-\item{file}{path to the SQLite database.}
+\item{dbfile}{path to the SQLite database.}
 }
 \value{
 Returns SQLite database connection.

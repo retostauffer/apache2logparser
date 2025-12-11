@@ -2,7 +2,7 @@
 
 #' Open (or create) SQLite Database 
 #'
-#' @param file path to the SQLite database.
+#' @param dbfile path to the SQLite database.
 #'
 #' @return Returns SQLite database connection.
 #'
