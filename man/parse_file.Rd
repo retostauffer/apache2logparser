@@ -45,7 +45,7 @@ Parsing Logfile
 \examples{
 \dontrun{
   FILE   <- "my_access_log"
-  con    <- open_database("foo.sqlite3")
+  con    <- open_database("test.sqlite3")
   nlines <- parse_file(FILE, con = con, n = 1e5, verbose = TRUE)
   msg    <- dbGetQuery(con, "SELECT * FROM messages")
   log    <- dbGetQuery(con, "SELECT * FROM logs")

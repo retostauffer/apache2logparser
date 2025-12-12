@@ -37,8 +37,12 @@ open_database <- function(dbfile) {
             message_id INTEGER NOT NULL,
             ip VARCHAR(15) NOT NULL,
             timestamp DATETIME NOT NULL,
-            code INTEGER NOT NULL,
-            size INTEGER NOT NULL,
+            code INTEGER,
+            size INTEGER,
+            error_message VARCHAR(100),
+            process_id INTEGER,
+            thread_id INTEGER,
+            client_port INTEGER,
             type VARCHAR(1),
             FOREIGN KEY(message_id) REFERENCES messages(message_id)
         )

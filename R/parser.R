@@ -22,7 +22,7 @@
 #' @examples
 #' \dontrun{
 #'   FILE   <- "my_access_log"
-#'   con    <- open_database("foo.sqlite3")
+#'   con    <- open_database("test.sqlite3")
 #'   nlines <- parse_file(FILE, con = con, n = 1e5, verbose = TRUE)
 #'   msg    <- dbGetQuery(con, "SELECT * FROM messages")
 #'   log    <- dbGetQuery(con, "SELECT * FROM logs")
@@ -81,7 +81,7 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
         }
 
         # Parsing the data
-        tmp <- parse_logs(raw, warn = warn)
+        tmp <- parse_logs(raw, type = type, warn = warn)
         if (is.null(tmp)) {
             if (verbose) cat(" .. all lines had incorrect format, continue\n")
             next
@@ -104,13 +104,15 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
             tmp$type <- substr(tmp$type, 0, 1)
 
             # Logs
-            query <- "INSERT INTO logs (message_id, ip, timestamp, code, size, type)
-                      VALUES (:message_id, :ip, :timestamp, :code, :size, :type)"
+            vars <- names(tmp)[!names(tmp) == "message"]
+            query <- sprintf("INSERT INTO logs (%s) VALUES (%s)",
+                             paste(vars, collapse = ", "),
+                             paste(paste0(":", vars), collapse = ", "))
             dbExecute(con, "BEGIN TRANSACTION")
 
             if (verbose) cat(" and write them to DB\n")
             stmt <- dbSendStatement(con, query)
-            dbBind(stmt, tmp[c("message_id", "ip", "timestamp", "code", "size", "type")])
+            dbBind(stmt, tmp[vars])
             dbClearResult(stmt)
 
             dbExecute(con, "COMMIT")
@@ -127,24 +129,59 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
 
 #' @importFrom stringr str_match
 #' @importFrom stats line na.omit
-parse_logs <- function(x, warn = TRUE) {
+parse_logs <- function(x, type, warn = TRUE) {
     stopifnot(is.character(x) || length(x) > 0)
 
-    x <- str_match(x, "^([0-9\\.]+)[\\s-]+(?!=\\[)(.*)(?<=\\])\\s(?!=\\\")(.*?)(?!=\\\")\\s([0-9-]+)\\s([0-9-]+)")
-    if (any(is.na(x))) {
+    type <- match.arg(tolower(type), c("error", "access"))
+
+    pattern <- if (type == "access") {
+        "^([0-9\\.]+)[\\s-]+(?!=\\[)(.*)(?<=\\])\\s(?!=\\\")(.*?)(?!=\\\")\\s([0-9-]+)\\s([0-9-]+)"
+    } else {
+        # GPT
+        "\\[(.*?)\\] \\[(.*?)\\] \\[pid ([0-9]+):tid ([0-9]+)\\] \\[client ([0-9.]+):([0-9]+)\\] (.*?): (.*)"
+
+    }
+    x <- as.data.frame(str_match(x, pattern))
+    if (all(is.na(x))) {
+        stop("All lines evaluated to `NA` (unexpected format of logs)")
+    } else if (any(is.na(x))) {
         cat(paste(line[which(is.na(x))], collapse = "\n"))
         stop('parsing issue')
     }
-    x[grep("^-$", x[, 6]), 6] <- "0"
-    res <- data.frame(ip = x[, 2],
-                      timestamp =  as.numeric(as.POSIXct(x[, 3], format = "[%d/%b/%Y:%H:%M:%S %z]", tz = "UTC")),
-                      message   = gsub("\\\"$", "", gsub("^\\\"", "", x[, 4])),
-                      code      = as.integer(x[, 5]), # Causes warnings if == '-'
-                      size      = as.integer(x[, 6]))
-    n <- nrow(res)
-    res <- na.omit(res)
-    if (nrow(res) != n & warn)
-        warning("Dropped ", n - nrow(res), " lines (not parsable; incorrect format)")
+
+    # Rows with missing values
+    narows <- which(rowSums(is.na(x)) > 0)
+
+    if (type == "access") {
+        x[grep("^-$", x[, 6]), 6] <- "0"
+        res <- data.frame(ip = x[, 2],
+                          timestamp     =  as.numeric(as.POSIXct(x[, 3], format = "[%d/%b/%Y:%H:%M:%S %z]", tz = "UTC")),
+                          message       = gsub("\\\"$", "", gsub("^\\\"", "", x[, 4])),
+                          code          = as.integer(x[, 5]), # Causes warnings if == '-'
+                          size          = as.integer(x[, 6]),
+                          error_message = NA,
+                          process_id    = NA,
+                          thread_id     = NA,
+                          client_port   = NA)
+    } else {
+        x <- setNames(x[, -1], c("date", "type", "process_id", "thread_id",
+                                 "ip", "client_port", "message", "url"))
+        res <- data.frame(ip            = x$ip,
+                          timestamp     = as.numeric(as.POSIXct(x$date, format = "%a %b %d %H:%M:%OS %Y", locale = "UTC", locale = "C")),
+                          message       = x$url,
+                          code          = NA,
+                          size          = NA,
+                          error_message = paste(x$type, x$message, sep = " -- "),
+                          process_id    = x$process_id,
+                          thread_id     = x$thread_id,
+                          client_port   = x$client_port)
+
+    }
+
+
+    if (length(narows) > 0) res <- res[-narows, ]
+    if (length(narows) > 0 & warn)
+        warning("Dropped ", length(narows), " lines (not parsable; incorrect format)")
     if (nrow(res) == 0) return(NULL)
 
     # 'Stripping' messages
