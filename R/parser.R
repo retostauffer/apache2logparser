@@ -1,6 +1,5 @@
 
-
-#' Parsing Logfile
+#' Parsing Apache2 Logfile
 #'
 #' @param file character, path to the logfile to be parsed.
 #' @param con either `NULL` (just returns a data.frame) or
@@ -21,13 +20,19 @@
 #'
 #' @examples
 #' \dontrun{
-#'   FILE   <- "my_access_log"
+#'   FILE_A <- "my_access_log"
+#'   FILE_E <- "my_error_log"
 #'   con    <- open_database("test.sqlite3")
-#'   nlines <- parse_file(FILE, con = con, n = 1e5, verbose = TRUE)
+#'   nlines <- parse_file(FILE_A, con = con, n = 1e5, verbose = TRUE)
+#'   nlines <- parse_file(FILE_E, con = con, n = 1e5, verbose = TRUE)
 #'   msg    <- dbGetQuery(con, "SELECT * FROM messages")
-#'   log    <- dbGetQuery(con, "SELECT * FROM logs")
+#'   alog   <- dbGetQuery(con, "SELECT * FROM access_logs")
+#'   elog   <- dbGetQuery(con, "SELECT * FROM error_logs")
 #'   dbDisconnect(con)
 #' }
+#'
+#' @export
+#' @author Reto
 #'
 #' @importFrom RSQLite dbWriteTable dbBind dbSendStatement dbClearResult dbGetQuery
 parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, maxbatches = .Machine$integer.max, warn = TRUE) { 
@@ -86,7 +91,6 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
             if (verbose) cat(" .. all lines had incorrect format, continue\n")
             next
         }
-        tmp$type <- type
 
         # Write to database
         if (!is.null(con)) {
@@ -99,15 +103,23 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
             dbExecute(con, "COMMIT")
 
             # Getting all messages
-            msgs <- dbGetQuery(con, "SELECT * FROM messages")
-            tmp <- merge(msgs, tmp, by = "message")
-            tmp$type <- substr(tmp$type, 0, 1)
+            msgs  <- dbGetQuery(con, "SELECT * FROM messages")
+            tmp0 <- tmp
+            tmp   <- merge(msgs, tmp, by = "message")
+
+            k <- msgs$message[duplicated(msgs$message)]
+            if (length(k) > 0) {
+                k <- table(subset(msgs, message %in% k)$message)
+                print(k)
+            }
+            if (nrow(tmp) > nrow(tmp0)) browser()
 
             # Logs
-            vars <- names(tmp)[!names(tmp) == "message"]
-            query <- sprintf("INSERT INTO logs (%s) VALUES (%s)",
-                             paste(vars, collapse = ", "),
+            vars  <- names(tmp)[!names(tmp) == "message"]
+            query <- sprintf("INSERT INTO %s_logs (%s) VALUES (%s)",
+                             type, paste(vars, collapse = ", "),
                              paste(paste0(":", vars), collapse = ", "))
+
             dbExecute(con, "BEGIN TRANSACTION")
 
             if (verbose) cat(" and write them to DB\n")
@@ -158,19 +170,13 @@ parse_logs <- function(x, type, warn = TRUE) {
                           timestamp     =  as.numeric(as.POSIXct(x[, 3], format = "[%d/%b/%Y:%H:%M:%S %z]", tz = "UTC")),
                           message       = gsub("\\\"$", "", gsub("^\\\"", "", x[, 4])),
                           code          = as.integer(x[, 5]), # Causes warnings if == '-'
-                          size          = as.integer(x[, 6]),
-                          error_message = NA,
-                          process_id    = NA,
-                          thread_id     = NA,
-                          client_port   = NA)
+                          size          = as.integer(x[, 6]))
     } else {
         x <- setNames(x[, -1], c("date", "type", "process_id", "thread_id",
                                  "ip", "client_port", "message", "url"))
         res <- data.frame(ip            = x$ip,
                           timestamp     = as.numeric(as.POSIXct(x$date, format = "%a %b %d %H:%M:%OS %Y", locale = "UTC", locale = "C")),
                           message       = x$url,
-                          code          = NA,
-                          size          = NA,
                           error_message = paste(x$type, x$message, sep = " -- "),
                           process_id    = x$process_id,
                           thread_id     = x$thread_id,

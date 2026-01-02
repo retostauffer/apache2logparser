@@ -26,29 +26,38 @@ open_database <- function(dbfile) {
         sql <- "CREATE TABLE messages (
             message_id INTEGER PRIMARY KEY AUTOINCREMENT,
             message VARCHAR(200),
-            UNIQUE(message_id)
+            UNIQUE(message)
         )
         "
         tryCatch(dbExecute(con, sql),
-                 error = function(e) stop("Error creating DB:", e))
+                 error = function(e) stop("Error creating messages DB table:", e))
 
-        # logs table
-        sql <- "CREATE TABLE logs (
+        # access logs table
+        sql <- "CREATE TABLE access_logs (
             message_id INTEGER NOT NULL,
             ip VARCHAR(15) NOT NULL,
             timestamp DATETIME NOT NULL,
             code INTEGER,
             size INTEGER,
-            error_message VARCHAR(100),
-            process_id INTEGER,
-            thread_id INTEGER,
-            client_port INTEGER,
-            type VARCHAR(1),
             FOREIGN KEY(message_id) REFERENCES messages(message_id)
         )
         "
         tryCatch(dbExecute(con, sql),
-                 error = function(e) stop("Error creating DB:", e))
+                 error = function(e) stop("Error creating access_logs DB table:", e))
+        # logs table
+        sql <- "CREATE TABLE error_logs (
+            message_id INTEGER NOT NULL,
+            ip VARCHAR(15) NOT NULL,
+            timestamp DATETIME NOT NULL,
+            error_message VARCHAR(100),
+            process_id INTEGER,
+            thread_id INTEGER,
+            client_port INTEGER,
+            FOREIGN KEY(message_id) REFERENCES messages(message_id)
+        )
+        "
+        tryCatch(dbExecute(con, sql),
+                 error = function(e) stop("Error creating error_logs DB table:", e))
     }
 
     return(con)

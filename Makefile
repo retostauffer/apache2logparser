@@ -18,3 +18,5 @@ check: build
 	@echo Checking current version: $(VERSION)
 	(cd ../ && R CMD check --as-cran apache2logparser_$(VERSION).tar.gz)
 
+clean:
+	-rm file*_demo.sqlite3

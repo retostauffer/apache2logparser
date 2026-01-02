@@ -1,32 +1,38 @@
+#!/usr/bin/env Rscript
 
-
-library("devtools")
-library("RSQLite")
-f <- function(...) { document(); load_all() }
-
-FILE_A <- "/home/retos/Documents/2025-11-05_jss_varfull/var_log_moved_20251105/000-www.jstatsoft.org_access_log"
-FILE_E <- "/home/retos/Documents/2025-11-05_jss_varfull/var_log_moved_20251105/test_error_log"
-
-f()
 library("apache2logparser")
+library("devtools")
+load_all()
 
-if (file.exists("test.sqlite3")) file.remove("test.sqlite3")
-f()
-con <- open_database("test.sqlite3")
-f()
+dir <- system.file("extdata", package = "apache2logparser")
+stopifnot(file.exists(FILE_A <- file.path(dir, "www.example.com_access_log")))
+stopifnot(file.exists(FILE_E <- file.path(dir, "www.example.com_error_log")))
 
-f(); t <- system.time(k <- parse_file(FILE_A, con = con, n = 50, maxbatches = 1, verbose = TRUE, warn = TRUE))
-print(t)
-f(); t <- system.time(k <- parse_file(FILE_E, con = con, n = 50, maxbatches = 1, verbose = TRUE, warn = TRUE))
-print(t)
+# Create random file name for sqlite3 database.
+DBFILE <- basename(tempfile(fileext = "_demo.sqlite3"))
 
-traceback()
+# Connecting to database
+con <- open_database(DBFILE)
+
+# Parsing access log file and error log file; both directly
+# write to database via the database connection
+an <- parse_file(FILE_A, con = con, n = 30, verbose = TRUE)
+en <- parse_file(FILE_E, con = con, n = 30, verbose = TRUE)
+
+# Reading all data from the three different tables created
 msg <- dbGetQuery(con, "SELECT * FROM messages")
-log <- dbGetQuery(con, "SELECT * FROM logs")
-dbDisconnect(con)
-print(dim(log))
-print(dim(msg))
+alog <- dbGetQuery(con, "SELECT * FROM access_logs")
+elog <- dbGetQuery(con, "SELECT * FROM error_logs")
 
-head(msg)
-head(log)
+# Disconnecting from database
+dbDisconnect(con)
+
+# Some output for testing
+message("Size of table 'messages':    ", paste(dim(msg), collapse = " x "))
+message("Size of table 'access_logs': ", paste(dim(alog), collapse = " x "))
+message("Size of table 'error_logs':  ", paste(dim(elog), collapse = " x "))
+
+# Removing demo file
+file.remove(DBFILE)
+
 

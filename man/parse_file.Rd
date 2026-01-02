@@ -44,12 +44,18 @@ Parsing Logfile
 }
 \examples{
 \dontrun{
-  FILE   <- "my_access_log"
+  FILE_A <- "my_access_log"
+  FILE_E <- "my_error_log"
   con    <- open_database("test.sqlite3")
-  nlines <- parse_file(FILE, con = con, n = 1e5, verbose = TRUE)
+  nlines <- parse_file(FILE_A, con = con, n = 1e5, verbose = TRUE)
+  nlines <- parse_file(FILE_E, con = con, n = 1e5, verbose = TRUE)
   msg    <- dbGetQuery(con, "SELECT * FROM messages")
-  log    <- dbGetQuery(con, "SELECT * FROM logs")
+  alog   <- dbGetQuery(con, "SELECT * FROM access_logs")
+  elog   <- dbGetQuery(con, "SELECT * FROM error_logs")
   dbDisconnect(con)
 }
 
+}
+\author{
+Reto
 }
