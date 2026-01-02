@@ -1,6 +1,6 @@
 Package: apache2logparser
 Title: Parsing and Analyzing Apache2 Logfiles
-Version: 0.0.0.9000
+Version: 0.0.0.9001
 Authors@R: 
     person("Reto", "Stauffer", , "reto.stauffer@uibk.ac.at", role = c("aut", "cre"))
 Description: Parsing (my) apache2 logfiles and run some analysis. Uses sqlite3 to store the information for faster access.
