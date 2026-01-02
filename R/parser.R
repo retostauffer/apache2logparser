@@ -125,15 +125,7 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
 
             # Getting all messages
             msgs  <- dbGetQuery(con, "SELECT * FROM messages")
-            tmp0 <- tmp
             tmp   <- merge(msgs, tmp, by = "message")
-
-            k <- msgs$message[duplicated(msgs$message)]
-            if (length(k) > 0) {
-                k <- table(subset(msgs, message %in% k)$message)
-                print(k)
-            }
-            if (nrow(tmp) > nrow(tmp0)) browser()
 
             # Logs
             vars  <- names(tmp)[!names(tmp) == "message"]

@@ -58,6 +58,8 @@ open_database <- function(dbfile) {
         "
         tryCatch(dbExecute(con, sql),
                  error = function(e) stop("Error creating error_logs DB table:", e))
+    } else {
+        warning("Note that there is no unique constraint on ip/time/message as the time is only logged on a precision of one second. Thus, make sure you do not process the same logfile twice to avoid duplicates!")
     }
 
     return(con)
