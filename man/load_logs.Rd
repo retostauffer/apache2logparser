@@ -2,6 +2,7 @@
 % Please edit documentation in R/analyzer.R
 \name{load_logs}
 \alias{load_logs}
+\alias{load_stats}
 \title{Loading Logs From Database}
 \usage{
 load_logs(
@@ -12,6 +13,8 @@ load_logs(
   limit = NULL,
   quiet = FALSE
 )
+
+load_stats(con, start = NULL, end = NULL)
 }
 \arguments{
 \item{con}{object of class \code{SQLiteConnection}}
@@ -32,8 +35,9 @@ number of logs (useful for testing).}
 \item{quiet}{Logical, defaults to \code{FALSE}.}
 }
 \value{
-Returns an object of class \code{apachelogs}, a list of length two with
-two data frames containing the access logs as well as the error logs.
+Returns an object of class \code{apachelogs}, a list of length three with
+three data frames containing basic statistics (\code{stats}) showing the total number
+of requests per IP per day as well as the detailed \code{access} and \code{error} logs.
 This object can be handed over to the \code{\link[=analyze_logs]{analyze_logs()}} function to retrieve
 the log statistics.
 }
@@ -49,6 +53,34 @@ loaded to a specific period. For convenience \verb{start >=} and \verb{end <}
 is used, so one can retrieve logs for one specific day by supplying
 e.g., \code{start = "2026-01-03"} and \code{end = "2026-01-04"} which will
 include all logs for 2026-01-03.
+}
+\examples{
+\dontrun{
+## This is a NON-WORKING example just to have a template
+con  <- open_database("mydatabase.sqlite3")
+
+## Loading summary statistics, total log counts per IP.
+## Can be used to identify bad actors to limit the logs
+## analyzed later (see load_logs() function, argument 'ips').
+stats <- load_stats(con)
+stats <- load_stats(con, start = "2026-01-03", end = "2026-01-04")
+
+## Loading logs (all logs; can be very demanding depending on the DB)
+logs <- load_logs(con)
+
+## Loading logs for a specific day
+logs <- load_logs(con, start = "2026-01-03", end = "2026-01-04")
+
+## Loading logs for specific IP addresses
+logs <- load_logs(con, ips = c("127.0.0.1", "192.168.0.1"))
+
+## Limit number of logs (mainly for testing)
+logs <- load_logs(con, limit = 1000)
+
+## Visualize the worst n = 6 IPs in terms of number of access.
+plot(logs) # Uses n = 6 by default
+}
+
 }
 \author{
 Reto

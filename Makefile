@@ -16,7 +16,7 @@ install: build
 	(cd ../ && R CMD INSTALL apache2logparser_$(VERSION).tar.gz)
 check: build
 	@echo Checking current version: $(VERSION)
-	(cd ../ && R CMD check --as-cran apache2logparser_$(VERSION).tar.gz)
+	(cd ../ && R CMD check apache2logparser_$(VERSION).tar.gz)
 
 clean:
 	-rm file*_demo.sqlite3

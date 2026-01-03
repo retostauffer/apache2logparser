@@ -4,7 +4,7 @@
 \alias{analyze_logs}
 \title{Analyzing Apache Logs}
 \usage{
-analyze_logs(x, unit = c("hours", "days", "minutes", "seconds"), ...)
+analyze_logs(x, unit = c("hours", "days", "minutes", "seconds"))
 }
 \arguments{
 \item{x}{object of class apachelogs as returned by the function

@@ -11,6 +11,7 @@
 #'
 #' @importFrom RSQLite dbConnect SQLite dbExecute dbCommit
 open_database <- function(dbfile) {
+
     stopifnot(
         "argument 'dbfile' must be character" =
             is.character(dbfile) && length(dbfile) == 1L
