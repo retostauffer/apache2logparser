@@ -49,11 +49,17 @@ rm(bad_ip, bad_ts)
 cat("Number of blocked IPs found in logs:", nrow(blocked), "\n")
 
 # Loading the detailed logs for these IPs
+devtools::load_all("../")
 logs <- load_logs(con, ips = blocked$ip)
+names(logs)
 plot(logs, n = 3, sqrt = FALSE)
 
+mtab <- sort(table(logs$access$message_id), decreasing = TRUE)
+kkk <- subset(logs$messages, message_id %in% as.integer(names(head(mtab, n = 20))))
+kkk
+proportions(table(grepl("wp-content", logs$access$message)))
+
 # Calculating statistics for these bad actors
-devtools::load_all("../")
 res <- analyze_logs(logs, unit = "15minutes")
 head(res)
 res <- merge(res, blocked, by = "ip")
@@ -85,6 +91,10 @@ tinyplot(access_count ~ timestamp, data = k, typ = "o")
 tinyplot_add(type = type_vline(as.integer(k$blocked[1])), col = 2, lwd = 3)
 names(table(l$message))
 
+tmp  <- load_logs(con, ips = TARGET)
+tmp <- analyze_logs(tmp, unit = "minutes")
+plot(access_count ~ timestamp, data = tmp, type = "o", col = 2, lwd = 3)
+
 # ---- also a bot scanning
 TARGET <- "159.65.201.86"
 k <- subset(res, ip == TARGET)
@@ -92,6 +102,10 @@ l <- subset(logs$access, ip == TARGET)
 tinyplot(access_count ~ timestamp, data = k, typ = "o")
 tinyplot_add(type = type_vline(as.integer(k$blocked[1])), col = 2, lwd = 3)
 names(table(l$message))
+
+tmp  <- load_logs(con, ips = TARGET)
+tmp <- analyze_logs(tmp, unit = "minutes")
+plot(access_count ~ timestamp, data = tmp, type = "o", col = 2, lwd = 3)
 
 # ---- legit URIs, but seems to scrape
 TARGET <- "74.7.227.21"

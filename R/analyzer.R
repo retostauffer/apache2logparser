@@ -164,7 +164,10 @@ load_logs <- function(con, ips = NULL, start = NULL, end = NULL, limit = NULL, q
         } else { message("    Error logs:     (no data)") }
     }
 
-    res <- list(stats = stats, access = alog, error = elog)
+    tmp <- unique(c(alog$message_id, elog$message_id))
+    msg <- subset(msg, message_id %in% tmp)
+
+    res <- list(stats = stats, access = alog, error = elog, messages = msg)
     class(res) <- "apachelogs"
     return(res)
 }
