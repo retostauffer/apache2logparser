@@ -1,4 +1,4 @@
-
+#!/usr/bin/env Rscript
 
 library("apache2logparser")
 
@@ -14,9 +14,9 @@ con <- open_database(DBFILE)
 
 # Parsing access log file and error log file; both directly
 # write to database via the database connection
-N    <- 50000
-an   <- parse_file(FILE_A, con = con, n = N, verbose = TRUE)
+N    <- 100000
 en   <- parse_file(FILE_E, con = con, n = N, verbose = TRUE)
+an   <- parse_file(FILE_A, con = con, n = N, verbose = TRUE)
 
 # Reading all data from the three different tables created
 msg  <- dbGetQuery(con, "SELECT * FROM messages")

@@ -18,6 +18,11 @@
 #'
 #' @return Invisibly returns the number of parsed lines.
 #'
+#' @details Will parse both access logs and error logs. Logfiles
+#' can contain incomplete or broken lines. Thus, we will remove
+#' all lines which fail parsing, and also remove all files where
+#' we can't properly decode the time information.
+#'
 #' @examples
 #' library("apache2logparser")
 #'
@@ -91,6 +96,7 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
     }
 
     # Parsing the file
+    cat("Reading", file, "\n")
     fid     <- file(file, "r") # open file connection
     counter <- 0
     nlines  <- 0
@@ -102,7 +108,7 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
         if (length(raw) == 0L) break
 
         if (verbose) {
-            fmt <- "Reading line %d-%d (n = %d) lines from file"
+            fmt <- "  Parsing lines %d-%d (n = %d) lines from file"
             cat(sprintf(fmt, l1, nlines, length(raw)))
         }
 
@@ -135,12 +141,14 @@ parse_file <- function(file, con = NULL, n = 10L, type = NULL, verbose = FALSE, 
 
             dbExecute(con, "BEGIN TRANSACTION")
 
-            if (verbose) cat(" and write them to DB\n")
+            if (verbose) cat(" and write them to DB")
             stmt <- dbSendStatement(con, query)
-            dbBind(stmt, tmp[vars])
+            tryCatch(dbBind(stmt, tmp[vars]),
+                     error = function(e) stop("Error writing logs to db: ", e))
             dbClearResult(stmt)
 
             dbExecute(con, "COMMIT")
+            cat("\n")
         }
 
         if (counter >= maxbatches) {
@@ -167,15 +175,18 @@ parse_logs <- function(x, type, warn = TRUE) {
 
     }
     x <- as.data.frame(str_match(x, pattern))
-    if (all(is.na(x))) {
-        stop("All lines evaluated to `NA` (unexpected format of logs)")
-    } else if (any(is.na(x))) {
-        cat(paste(line[which(is.na(x))], collapse = "\n"))
-        stop('parsing issue')
-    }
 
-    # Rows with missing values
-    narows <- which(rowSums(is.na(x)) > 0)
+    # Finding rows only containing missing values, i.e.,
+    # lines which could not have been parsed (wrong format),
+    nremoved <- 0
+    narows   <- unique(which(rowSums(is.na(x)) > 0) | is.na(x$timestamp))
+    if (length(narows) == nrow(x)) {
+        stop("All lines evaluated to `NA` (unexpected format of logs?)")
+    } else if (length(narows) > 0) {
+        nremoved <- nremoved + length(narows)
+        x <- x[!narows, ]
+    }
+    rm(narows)
 
     if (type == "access") {
         x[grep("^-$", x[, 6]), 6] <- "0"
@@ -197,11 +208,15 @@ parse_logs <- function(x, type, warn = TRUE) {
 
     }
 
+    # Not successful converting the time stamp? Remove line(s)
+    narows <- which(is.na(res$timestamp))
+    if (length(narows) > 0) {
+        nremoved <- nremoved + 1
+        res <- res[-narows, ]
+    }
 
-    if (length(narows) > 0) res <- res[-narows, ]
-    if (length(narows) > 0 & warn)
-        warning("Dropped ", length(narows), " lines (not parsable; incorrect format)")
-    if (nrow(res) == 0) return(NULL)
+    if (nremoved > 0L)
+        warning("Removing ", nremoved, " lines (not parsable)")
 
     # 'Stripping' messages
     res$message <- gsub("^GET\\s", "", res$message)

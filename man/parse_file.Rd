@@ -42,6 +42,12 @@ Invisibly returns the number of parsed lines.
 \description{
 Parsing Apache2 Logfile
 }
+\details{
+Will parse both access logs and error logs. Logfiles
+can contain incomplete or broken lines. Thus, we will remove
+all lines which fail parsing, and also remove all files where
+we can't properly decode the time information.
+}
 \examples{
 library("apache2logparser")
 

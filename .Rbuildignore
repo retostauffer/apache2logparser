@@ -2,5 +2,5 @@
 ^test*
 ^Makefile
 ^test.sqlite3
-^inst/reto_analyzelogs.R
+^inst/reto_*.R
 ^inst/DOS.sqlite3
