@@ -127,12 +127,21 @@ load_logs <- function(con, ips = NULL, start = NULL, end = NULL, limit = NULL, q
     rm(sql)
 
     # Basic stats
-    astat <- setNames(aggregate(timestamp ~ ip + as.days(timestamp),
-                                FUN = length, data = alog),
-                      c("ip", "date", "access_count"))
-    estat <- setNames(aggregate(timestamp ~ ip + as.days(timestamp),
-                                FUN = length, data = elog),
-                      c("ip", "date", "error_count"))
+    if (nrow(alog) > 0) {
+        astat <- setNames(aggregate(timestamp ~ ip + as.days(timestamp),
+                                    FUN = length, data = alog),
+                          c("ip", "date", "access_count"))
+    } else {
+        astat <- data.frame(ip = NA, date = NA, access_count = NA)[-1, ]
+    }
+
+    if (nrow(elog) > 0) {
+        estat <- setNames(aggregate(timestamp ~ ip + as.days(timestamp),
+                                    FUN = length, data = elog),
+                          c("ip", "date", "error_count"))
+    } else {
+        estat <- data.frame(ip = NA, date = NA, error_count = NA)[-1, ]
+    }
     stats <- merge(astat, estat, by = c("ip", "date"), all = TRUE)
     stats[is.na(stats)] <- 0
     rm(astat, estat)
@@ -141,12 +150,18 @@ load_logs <- function(con, ips = NULL, start = NULL, end = NULL, limit = NULL, q
     if (!quiet) {
         fmt <- "%Y-%m-%d %H:%M:%S"
         message("Messages retrieved:")
-        message(sprintf("    Access logs:   %10d    (%s  to  %s)", nrow(alog),
-                        format(min(alog$timestamp), format = fmt),
-                        format(max(alog$timestamp), format = fmt)))
-        message(sprintf("    Error logs:    %10d    (%s  to  %s)", nrow(elog),
-                        format(min(elog$timestamp), format = fmt),
-                        format(max(elog$timestamp), format = fmt)))
+
+        if (nrow(alog) > 0) {
+            message(sprintf("    Access logs:   %10d    (%s  to  %s)", nrow(alog),
+                            format(min(alog$timestamp), format = fmt),
+                            format(max(alog$timestamp), format = fmt)))
+        } else { message("    Access logs:    (no data)") }
+
+        if (nrow(elog) > 0) {
+            message(sprintf("    Error logs:    %10d    (%s  to  %s)", nrow(elog),
+                            format(min(elog$timestamp), format = fmt),
+                            format(max(elog$timestamp), format = fmt)))
+        } else { message("    Error logs:     (no data)") }
     }
 
     res <- list(stats = stats, access = alog, error = elog)
@@ -190,7 +205,6 @@ load_stats <- function(con, start = NULL, end = NULL) {
         if (length(where) > 0)
             sql <- paste(sql, "WHERE", paste(where, collapse = " AND "))
         sql <- paste(sql, "GROUP BY ip")
-        print(sql)
         return(sql)
     }
 
@@ -210,19 +224,41 @@ load_stats <- function(con, start = NULL, end = NULL) {
 
 # ===================================================================
 
+#' @param x object of class 'apachelogs' as returned by [load_logs()].
+#' @param n number of IPs to plot (the n worst actors).
+#' @param what character, what to plot.
+#' @param sqrt logical, defaults to `TRUE`. If `TRUE`, square-root
+#'        transformed counts are plotted, else identity is used.
+#' @param \dots forwarded to `barplot()`.
 #'
 #' @exportS3Method plot apachelogs
+#' @rdname load_logs
 #'
 #' @importFrom grDevices hcl.colors
 #' @importFrom graphics barplot par text
 #' @importFrom stats aggregate setNames xtabs
-plot.apachelogs <- function(x, n = 6, sqrt = TRUE, ...) {
+plot.apachelogs <- function(x, n = 6, what = c("auto", "both", "access", "error"), sqrt = TRUE, ...) {
     n <- as.integer(n)[1L]
+    what <- match.arg(what)
+
     stopifnot(
         "n must be positive integer" = is.integer(n) & length(n) == 1L & n > 0,
         "sqrt must be logical TRUE or FALSE" = isTRUE(sqrt) || isFALSE(sqrt)
     )
     x <- x$stats
+    if ((sum(x$access_count) + sum(x$error_count)) == 0)
+        stop("No data to plot (all counts equal zero)")
+
+    # Auto-detecting what to plot
+    if (what == "auto") {
+        if (sum(x$access_count) > 0 & sum(x$error_count) > 0) {
+            what <- "both"
+        } else if (sum(x$access_count) > 0) {
+            what <- "access"
+        } else {
+            what <- "error"
+        }
+    }
 
     # If the number of different IPs is <= n, no subsetting is needed.
     if (length(unique(x$ip)) > n) {
@@ -240,21 +276,40 @@ plot.apachelogs <- function(x, n = 6, sqrt = TRUE, ...) {
     etab <- xtabs(error_count ~ ip + date, data = x)
     if (sqrt) { atab <- sqrt(atab); etab <- sqrt(etab) }
 
-
+    # Plotting options
     hold <- par(no.readonly = TRUE); on.exit(par(hold))
+    if (what == "both") par(mfrow = c(1, 2))
 
-    par(mfrow = c(1, 2))
-    bp <- barplot(atab, beside = TRUE, main = "Daily access logs",
-                  ylab = if (sqrt) "sqrt counts" else "counts",
-                  col = hcl.colors(nrow(atab), "Greens"))
-    for (i in seq_len(ncol(bp)))
-        text(bp[, i], max(atab) * 0.95, rownames(atab), adj = 1, srt = 90)
+    print(what)
+    # Plotting access counts
+    if (what %in% c("both", "access")) {
+        if (!all(atab == 0)) {
+            bp <- barplot(atab, beside = TRUE, main = "Daily access logs",
+                          ylab = if (sqrt) "sqrt counts" else "counts",
+                          col = hcl.colors(nrow(atab), "Greens"), ...)
+            for (i in seq_len(ncol(bp)))
+                text(bp[, i], max(atab) * 0.95, rownames(atab), adj = 1, srt = 90)
+        } else {
+            plot(NA, xaxt = "n", yaxt = "n", xlim = c(-1, 1), ylim = c(-1, 1),
+                 xlab = NA, ylab = NA, bty = "n")
+            text(0, 0, "(no data/access counts)", col = "tomato")
+        }
+    }
 
-    bp <- barplot(etab, beside = TRUE, main = "Daily error logs",
-                  ylab = if (sqrt) "sqrt counts" else "counts",
-                  col = hcl.colors(nrow(etab), "Reds"))
-    for (i in seq_len(ncol(bp)))
-        text(bp[, i], max(etab) * 0.95, rownames(etab), adj = 1, srt = 90)
+    # Plotting error counts
+    if (what %in% c("both", "error")) {
+        if (!all(etab == 0)) {
+            bp <- barplot(etab, beside = TRUE, main = "Daily error logs",
+                          ylab = if (sqrt) "sqrt counts" else "counts",
+                          col = hcl.colors(nrow(etab), "Reds"), ...)
+            for (i in seq_len(ncol(bp)))
+                text(bp[, i], max(etab) * 0.95, rownames(etab), adj = 1, srt = 90)
+        } else {
+            plot(NA, xaxt = "n", yaxt = "n", xlim = c(-1, 1), ylim = c(-1, 1),
+                 xlab = NA, ylab = NA, bty = "n")
+            text(0, 0, "(no data/error counts)", col = "tomato")
+        }
+    }
 
     invisible(x)
 }
@@ -287,7 +342,7 @@ as.days <- function(x) as.Date(x, tz = attr(x, "tz"))
 #' @author Reto
 #'
 #' @importFrom stats aggregate setNames
-analyze_logs <- function(x, unit = c("hours", "days", "minutes", "seconds")) {
+analyze_logs <- function(x, unit = c("hours", "days", "minutes", "15minutes", "seconds")) {
 
     unit <- match.arg(unit)
     stopifnot(
@@ -301,6 +356,8 @@ analyze_logs <- function(x, unit = c("hours", "days", "minutes", "seconds")) {
     # Defines the temporal aggregation function
     if (unit == "hours") {
         timefun <- function(x) as.POSIXct(ceiling(as.integer(x) / 3600) * 3600, tz = attr(x, "tz"))
+    } else if (unit == "15minutes") {
+        timefun <- function(x) as.POSIXct(ceiling(as.integer(x) / 900) * 900, tz = attr(x, "tz"))
     } else if (unit == "minutes") {
         timefun <- function(x) as.POSIXct(ceiling(as.integer(x) / 60) * 60, tz = attr(x, "tz"))
     } else if (unit == "days") {
@@ -312,15 +369,22 @@ analyze_logs <- function(x, unit = c("hours", "days", "minutes", "seconds")) {
 
     # Aggregating number of logged calls per IP
     agg <- function(x, name) {
+        nms <- c("ip", "timestamp", name)
+        if (nrow(x) == 0)
+            return(setNames(data.frame(a = 1, b = 1, c = 1), nms)[-1, ])
+        # Start aggregation
         x$timestamp <- timefun(x$timestamp)
         res <- aggregate(ip ~ as.character(ip) + timefun(timestamp),
                          data = x, FUN = length)
-        return(setNames(res, c("ip", "timestamp", name)))
+        return(setNames(res, nms))
     }
     aagg <- agg(x$access, "access_count")
     eagg <- agg(x$error,  "error_count")
 
-    return(merge(aagg, eagg, by = c("ip", "timestamp"), all = TRUE))
+    res <- merge(aagg, eagg, by = c("ip", "timestamp"), all = TRUE)
+    res[is.na(res)] <- 0
+    res <- res[order(res$ip, res$timestamp), ]
+    return(res)
 }
 
 

@@ -3,6 +3,7 @@
 \name{load_logs}
 \alias{load_logs}
 \alias{load_stats}
+\alias{plot.apachelogs}
 \title{Loading Logs From Database}
 \usage{
 load_logs(
@@ -15,6 +16,8 @@ load_logs(
 )
 
 load_stats(con, start = NULL, end = NULL)
+
+\method{plot}{apachelogs}(x, n = 6, what = c("auto", "both", "access", "error"), sqrt = TRUE, ...)
 }
 \arguments{
 \item{con}{object of class \code{SQLiteConnection}}
@@ -33,6 +36,17 @@ of the logs to be returned if set.}
 number of logs (useful for testing).}
 
 \item{quiet}{Logical, defaults to \code{FALSE}.}
+
+\item{x}{object of class 'apachelogs' as returned by \code{\link[=load_logs]{load_logs()}}.}
+
+\item{n}{number of IPs to plot (the n worst actors).}
+
+\item{what}{character, what to plot.}
+
+\item{sqrt}{logical, defaults to \code{TRUE}. If \code{TRUE}, square-root
+transformed counts are plotted, else identity is used.}
+
+\item{\dots}{forwarded to \code{barplot()}.}
 }
 \value{
 Returns an object of class \code{apachelogs}, a list of length three with

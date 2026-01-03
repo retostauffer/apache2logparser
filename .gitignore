@@ -5,3 +5,4 @@
 /*.sqlite3
 /inst/*.sqlite3
 /inst/*.sqlite3-journal
+/inst/_*
